@@ -1,38 +1,37 @@
 import { useState, type FormEvent } from "react";
 import { AlertCircle, Check, Copy, Github, Linkedin, Send } from "lucide-react";
-import { z } from "zod";
 import { Reveal, Spotlight } from "@/components/motion";
 import { profile } from "@/data/portfolio";
 import { buttonClass, cn } from "@/lib/utils";
 import { Accent } from "./Section";
 
-const schema = z.object({
-  name: z.string().trim().min(2, "Name is too short").max(100),
-  email: z.string().trim().email("Invalid email address").max(255),
-  message: z.string().trim().min(10, "Message must be at least 10 characters").max(1000),
-});
+type Fields = { name: string; email: string; message: string };
+type Errors = Partial<Record<keyof Fields, string>>;
 
-type Fields = z.infer<typeof schema>;
+function validate({ name, email, message }: Fields): Errors {
+  const errors: Errors = {};
+  if (name.length < 2) errors.name = "Name is too short";
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) errors.email = "Invalid email address";
+  if (message.length < 10) errors.message = "Message must be at least 10 characters";
+  return errors;
+}
 
 const field =
   "w-full rounded-xl border border-input bg-white/[0.02] px-4 py-3 text-sm placeholder:text-muted-foreground/60 transition-colors focus:border-primary/60 focus:bg-white/[0.04] focus:outline-none";
 
 export function Contact() {
   const [form, setForm] = useState<Fields>({ name: "", email: "", message: "" });
-  const [errors, setErrors] = useState<Partial<Record<keyof Fields, string>>>({});
+  const [errors, setErrors] = useState<Errors>({});
   const [sent, setSent] = useState(false);
   const [copied, setCopied] = useState(false);
 
   const onSubmit = (e: FormEvent) => {
     e.preventDefault();
-    const result = schema.safeParse(form);
-    if (!result.success) {
-      const next: typeof errors = {};
-      for (const issue of result.error.issues) next[issue.path[0] as keyof Fields] = issue.message;
-      setErrors(next);
-      return;
-    }
-    const { name, email, message } = result.data;
+    const trimmed = { name: form.name.trim(), email: form.email.trim(), message: form.message.trim() };
+    const next = validate(trimmed);
+    setErrors(next);
+    if (Object.keys(next).length) return;
+    const { name, email, message } = trimmed;
     const subject = encodeURIComponent(`Portfolio enquiry from ${name}`);
     const body = encodeURIComponent(`${message}\n\n— ${name} (${email})`);
     window.location.href = `mailto:${profile.email}?subject=${subject}&body=${body}`;
